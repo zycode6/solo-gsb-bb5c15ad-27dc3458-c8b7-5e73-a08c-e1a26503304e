@@ -10,6 +10,8 @@ const MAX_ZONES = 200;
 
 app.use(express.json({ limit: '64kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+// 前端直接复用 src 下的 UMD 差异算法
+app.use('/src', express.static(path.join(__dirname, 'src')));
 
 function isFiniteNumber(x) {
   return typeof x === 'number' && Number.isFinite(x);

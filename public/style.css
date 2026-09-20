@@ -27,11 +27,17 @@ header .sub { margin: 4px 0 0; font-size: 13px; color: #9ca3af; }
 
 main {
   display: grid;
-  grid-template-columns: 340px minmax(420px, 1fr) 340px;
+  grid-template-columns: 340px minmax(420px, 1fr) 360px;
   gap: 16px;
   padding: 16px;
   align-items: start;
 }
+.col-left, .col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.col-left .panel, .col-right .panel { margin: 0; }
 @media (max-width: 1100px) {
   main { grid-template-columns: 1fr; }
 }
@@ -140,3 +146,140 @@ button.small { padding: 3px 10px; font-size: 12px; }
 .seg-list li.feasible.active { background: #dcfce7; }
 .seg-list li.forbidden { border-left: 4px solid var(--red); color: var(--muted); }
 .seg-list .tag { font-size: 11px; color: var(--muted); }
+
+/* ---------------- 方案快照 ---------------- */
+
+.snapshot-save { display: flex; gap: 8px; }
+.snapshot-save input[type="text"] {
+  flex: 1;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.snapshot-save input[type="text"]:focus { outline: 2px solid #bfdbfe; border-color: var(--blue); }
+.snapshot-msg { font-size: 12px; margin: 8px 0 0; }
+.snapshot-msg.ok { color: var(--green); }
+.snapshot-msg.err { color: var(--red); }
+
+.snapshot-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.snapshot-list .empty {
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.snapshot-item.selected { border-color: var(--blue); background: #eff6ff; }
+.snapshot-item input[type="checkbox"] { margin: 0; flex: none; }
+.snapshot-item .badge {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.snapshot-item.sel-a .badge,
+.snapshot-item.sel-b .badge { display: flex; }
+.snapshot-item.sel-b .badge { background: #7c3aed; }
+.snapshot-item .info { flex: 1; min-width: 0; }
+.snapshot-item .name { font-weight: 600; word-break: break-all; }
+.snapshot-item .meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.snapshot-item .icon-btn {
+  border: none;
+  background: none;
+  padding: 2px 5px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.snapshot-item .icon-btn:hover { color: var(--ink); }
+.snapshot-item .icon-btn.del:hover { color: var(--red); }
+.snapshot-diff-action { margin-top: 10px; }
+.snapshot-diff-action button { width: 100%; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---------------- 快照差异 ---------------- */
+
+.diff-meta {
+  font-size: 12px;
+  color: var(--muted);
+  background: #f9fafb;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+.diff-meta .tag-a { color: var(--blue); font-weight: 700; }
+.diff-meta .tag-b { color: #7c3aed; font-weight: 700; }
+
+#diffCanvas {
+  width: 100%;
+  max-width: 520px;
+  display: block;
+  margin: 0 auto;
+}
+
+.diff-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+.diff-summary .pill {
+  font-size: 12px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+}
+.diff-summary .pill.add { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+.diff-summary .pill.remove { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+.diff-summary .pill.move { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+
+.diff-block { margin-top: 12px; }
+.diff-block h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.diff-block .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+.diff-block ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.diff-block li {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 5px;
+  margin-bottom: 4px;
+  color: #374151;
+}
+.diff-block li.add { border-left-color: #16a34a; }
+.diff-block li.remove { border-left-color: #dc2626; }
+.diff-block li.move { border-left-color: #7c3aed; }
+.diff-block .none { color: var(--muted); font-size: 12px; }
+.diff-block .sub { color: var(--muted); font-size: 11px; }

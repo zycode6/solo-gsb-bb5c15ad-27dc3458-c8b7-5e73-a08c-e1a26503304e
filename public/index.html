@@ -13,47 +13,82 @@
   </header>
 
   <main>
-    <section class="panel inputs">
-      <h2>参数</h2>
-      <div class="field-row">
-        <label>筒体周长 (mm)
-          <input id="circumference" type="number" min="0.01" step="any" value="400" />
-        </label>
-        <label>接缝安全宽度 (mm)
-          <input id="seamWidth" type="number" min="0" step="any" value="20" />
-        </label>
-      </div>
+    <div class="col-left">
+      <section class="panel inputs">
+        <h2>参数</h2>
+        <div class="field-row">
+          <label>筒体周长 (mm)
+            <input id="circumference" type="number" min="0.01" step="any" value="400" />
+          </label>
+          <label>接缝安全宽度 (mm)
+            <input id="seamWidth" type="number" min="0" step="any" value="20" />
+          </label>
+        </div>
 
-      <h3>印刷保护区 (mm)<button id="addZone" type="button" class="small">+ 添加</button></h3>
-      <div id="zones"></div>
+        <h3>印刷保护区 (mm)<button id="addZone" type="button" class="small">+ 添加</button></h3>
+        <div id="zones"></div>
 
-      <div class="actions">
-        <button id="compute" type="button">计算</button>
-        <button id="loadExample" type="button" class="ghost">载入示例</button>
-      </div>
-      <p id="error" class="error" hidden></p>
-    </section>
+        <div class="actions">
+          <button id="compute" type="button">计算</button>
+          <button id="loadExample" type="button" class="ghost">载入示例</button>
+        </div>
+        <p id="error" class="error" hidden></p>
+      </section>
+
+      <section class="panel snapshots">
+        <h2>方案快照 <span class="hint">保存在本地浏览器</span></h2>
+        <div class="snapshot-save">
+          <input id="snapshotName" type="text" maxlength="40" placeholder="快照名称，如：400mm 初始方案" />
+          <button id="saveSnapshot" type="button" class="small">保存当前结果</button>
+        </div>
+        <p id="snapshotMsg" class="snapshot-msg" hidden></p>
+        <ul id="snapshotList" class="snapshot-list"></ul>
+        <div class="snapshot-diff-action">
+          <button id="compareSnapshots" type="button" disabled>比较选中的两个快照</button>
+        </div>
+      </section>
+    </div>
 
     <section class="panel preview">
-      <h2>预览 <span class="hint">拖动圆盘旋转，自动吸附到最近可行位置</span></h2>
-      <canvas id="canvas" width="520" height="520"></canvas>
-      <p id="currentPos" class="current-pos"></p>
+      <div id="livePreviewWrap">
+        <h2>预览 <span class="hint">拖动圆盘旋转，自动吸附到最近可行位置</span></h2>
+        <canvas id="canvas" width="520" height="520"></canvas>
+        <p id="currentPos" class="current-pos"></p>
+      </div>
+      <div id="diffView" hidden>
+        <h2>快照差异 <span class="hint">A → B，按圆周角度比较（周长不同亦可）</span></h2>
+        <div id="diffMeta" class="diff-meta"></div>
+        <canvas id="diffCanvas" width="520" height="520"></canvas>
+        <div id="diffSummary" class="diff-summary"></div>
+        <div class="actions">
+          <button id="exitDiff" type="button" class="ghost">返回实时预览</button>
+        </div>
+      </div>
     </section>
 
-    <section class="panel results">
-      <h2>结果</h2>
-      <div id="bestBox" class="best" hidden></div>
-      <div id="noSolutionBox" class="no-solution" hidden>
-        <strong>无解：</strong>禁用区间已覆盖整圈，接缝无处可放。
-        <div id="chainList"></div>
-      </div>
-      <h3>可行角度段 <span id="feasibleCount" class="hint"></span></h3>
-      <ul id="feasibleList" class="seg-list"></ul>
-      <h3>禁用区间（合并后）</h3>
-      <ul id="forbiddenList" class="seg-list"></ul>
-    </section>
+    <div class="col-right">
+      <section class="panel results">
+        <h2>结果</h2>
+        <div id="bestBox" class="best" hidden></div>
+        <div id="noSolutionBox" class="no-solution" hidden>
+          <strong>无解：</strong>禁用区间已覆盖整圈，接缝无处可放。
+          <div id="chainList"></div>
+        </div>
+        <h3>可行角度段 <span id="feasibleCount" class="hint"></span></h3>
+        <ul id="feasibleList" class="seg-list"></ul>
+        <h3>禁用区间（合并后）</h3>
+        <ul id="forbiddenList" class="seg-list"></ul>
+      </section>
+
+      <section class="panel diff-panel" id="diffListPanel" hidden>
+        <h2>差异明细</h2>
+        <div id="diffLists"></div>
+      </section>
+    </div>
   </main>
 
+  <script src="/src/snapshotDiff.js"></script>
+  <script src="snapshotStore.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
