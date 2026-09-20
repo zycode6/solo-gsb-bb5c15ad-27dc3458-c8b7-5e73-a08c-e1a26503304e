@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>圆筒包装接缝避让</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>圆筒包装接缝避让</h1>
+    <p class="sub">输入筒体周长、接缝安全宽度与印刷保护区，自动合并禁用旋转范围并给出最优旋转量</p>
+  </header>
+
+  <main>
+    <section class="panel inputs">
+      <h2>参数</h2>
+      <div class="field-row">
+        <label>筒体周长 (mm)
+          <input id="circumference" type="number" min="0.01" step="any" value="400" />
+        </label>
+        <label>接缝安全宽度 (mm)
+          <input id="seamWidth" type="number" min="0" step="any" value="20" />
+        </label>
+      </div>
+
+      <h3>印刷保护区 (mm)<button id="addZone" type="button" class="small">+ 添加</button></h3>
+      <div id="zones"></div>
+
+      <div class="actions">
+        <button id="compute" type="button">计算</button>
+        <button id="loadExample" type="button" class="ghost">载入示例</button>
+      </div>
+      <p id="error" class="error" hidden></p>
+    </section>
+
+    <section class="panel preview">
+      <h2>预览 <span class="hint">拖动圆盘旋转，自动吸附到最近可行位置</span></h2>
+      <canvas id="canvas" width="520" height="520"></canvas>
+      <p id="currentPos" class="current-pos"></p>
+    </section>
+
+    <section class="panel results">
+      <h2>结果</h2>
+      <div id="bestBox" class="best" hidden></div>
+      <div id="noSolutionBox" class="no-solution" hidden>
+        <strong>无解：</strong>禁用区间已覆盖整圈，接缝无处可放。
+        <div id="chainList"></div>
+      </div>
+      <h3>可行角度段 <span id="feasibleCount" class="hint"></span></h3>
+      <ul id="feasibleList" class="seg-list"></ul>
+      <h3>禁用区间（合并后）</h3>
+      <ul id="forbiddenList" class="seg-list"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
