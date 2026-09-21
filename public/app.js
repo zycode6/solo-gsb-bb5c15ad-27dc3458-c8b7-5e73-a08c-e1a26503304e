@@ -11,12 +11,18 @@ const state = {
   thetaMm: 0,          // 当前接缝位置 (mm, [0, C))
   dragging: false,
   rawMm: null,         // 拖动时未吸附的原始角度
+  snapshots: [],       // 本地方案快照（localStorage 持久化）
+  compareSel: [],      // 待比较的快照 id（最多 2 个）
+  diff: null,          // 快照比较结果（含 aName/bName）
+  diffIds: [],         // 参与当前比较的快照 id
 };
 
 const TAU = Math.PI * 2;
 const mod = (n, m) => ((n % m) + m) % m;
 const fmtMm = (x) => String(Math.round(x * 100) / 100);
 const fmtDeg = (x) => (Math.round(x * 10) / 10).toFixed(1);
+const esc = (s) =>
+  String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------------- 输入表单 ---------------- */
 
@@ -66,6 +72,8 @@ async function compute() {
   if (body.zones.some((z) => !Number.isFinite(z.start) || !Number.isFinite(z.end))) {
     return showError('保护区的起点与终点必须为数值 (mm)');
   }
+
+  clearDiff(); // 参数变化后回到实时计算视图
 
   let result;
   try {
@@ -243,14 +251,8 @@ function drawRingSegments(cx, cy, r, segments, C, color, width) {
   }
 }
 
-function draw() {
-  const r = state.result;
-  const { cx, cy, R, size } = geom();
-  ctx.clearRect(0, 0, size, size);
-  if (!r) return;
-  const C = r.circumference;
-
-  // 刻度（每 30°）
+/** 每 30° 的刻度与角度标注 */
+function drawTicks(cx, cy, R, C) {
   ctx.strokeStyle = '#d1d5db';
   ctx.fillStyle = '#9ca3af';
   ctx.lineWidth = 1;
@@ -269,6 +271,18 @@ function draw() {
     ctx.stroke();
     ctx.fillText(`${d}°`, cx + (R + 36) * Math.cos(a), cy + (R + 36) * Math.sin(a));
   }
+}
+
+function draw() {
+  const r = state.result;
+  const { cx, cy, R, size } = geom();
+  ctx.clearRect(0, 0, size, size);
+  if (state.diff) return drawDiff();
+  if (!r) return;
+  const C = r.circumference;
+
+  // 刻度（每 30°）
+  drawTicks(cx, cy, R, C);
 
   // 外环底色
   ctx.strokeStyle = '#e5e7eb';
@@ -392,7 +406,7 @@ function pointerMm(ev) {
 }
 
 canvas.addEventListener('pointerdown', (ev) => {
-  if (!state.result) return;
+  if (!state.result || state.diff) return; // 比较视图下禁用拖动
   state.dragging = true;
   canvas.classList.add('dragging');
   canvas.setPointerCapture(ev.pointerId);
@@ -417,6 +431,331 @@ function endDrag() {
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
 
+/* ---------------- 方案快照（localStorage 持久化） ---------------- */
+
+const LS_KEY = 'seamSnapshots.v1';
+
+function loadSnapshots() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return [];
+    return arr.filter(
+      (s) =>
+        s &&
+        typeof s.id === 'string' &&
+        typeof s.name === 'string' &&
+        Number.isFinite(s.createdAt) &&
+        s.inputs &&
+        Number.isFinite(s.inputs.circumference) &&
+        Number.isFinite(s.inputs.seamWidth) &&
+        Array.isArray(s.inputs.zones)
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistSnapshots() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state.snapshots));
+  } catch {
+    showError('快照无法写入本地存储（localStorage 不可用）');
+  }
+}
+
+function snapshotMeta(s) {
+  const t = new Date(s.createdAt).toLocaleString('zh-CN', { hour12: false });
+  const z = s.inputs.zones.length;
+  return `${t} ｜ 周长 ${fmtMm(s.inputs.circumference)} ｜ 缝宽 ${fmtMm(s.inputs.seamWidth)} ｜ 保护区 ${z} 个`;
+}
+
+function renderSnapshots() {
+  const list = $('snapshotList');
+  list.innerHTML = '';
+  const sorted = state.snapshots.slice().sort((a, b) => b.createdAt - a.createdAt);
+  if (sorted.length === 0) {
+    const li = document.createElement('li');
+    li.className = 'snapshot-empty';
+    li.textContent = '暂无快照：完成计算后可在上方命名并保存当前方案';
+    list.appendChild(li);
+  }
+  for (const s of sorted) {
+    const li = document.createElement('li');
+    li.className = 'snapshot-item' + (state.compareSel.includes(s.id) ? ' selected' : '');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = state.compareSel.includes(s.id);
+    cb.title = '勾选两个快照进行比较';
+    cb.addEventListener('change', () => toggleSelect(s.id, cb));
+
+    const info = document.createElement('div');
+    info.className = 'info';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = s.name;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = snapshotMeta(s);
+    info.appendChild(name);
+    info.appendChild(meta);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'del';
+    del.textContent = '✕';
+    del.title = '删除快照';
+    del.addEventListener('click', () => deleteSnapshot(s.id));
+
+    li.appendChild(cb);
+    li.appendChild(info);
+    li.appendChild(del);
+    list.appendChild(li);
+  }
+  updateCompareBar();
+}
+
+function updateCompareBar() {
+  $('compareBtn').disabled = state.compareSel.length !== 2;
+  $('compareHint').textContent = `已选 ${state.compareSel.length}/2 个快照`;
+}
+
+function toggleSelect(id, cb) {
+  if (cb.checked) {
+    if (state.compareSel.length >= 2) {
+      cb.checked = false;
+      $('compareHint').textContent = '最多同时选择两个快照进行比较';
+      return;
+    }
+    state.compareSel.push(id);
+  } else {
+    state.compareSel = state.compareSel.filter((x) => x !== id);
+  }
+  renderSnapshots();
+}
+
+function saveSnapshot() {
+  const body = readInputs();
+  if (!Number.isFinite(body.circumference) || body.circumference <= 0) {
+    return showError('筒体周长必须为大于 0 的数值，无法保存快照');
+  }
+  if (!Number.isFinite(body.seamWidth) || body.seamWidth < 0) {
+    return showError('接缝安全宽度必须为不小于 0 的数值，无法保存快照');
+  }
+  if (body.zones.some((z) => !Number.isFinite(z.start) || !Number.isFinite(z.end))) {
+    return showError('保护区的起点与终点必须为数值 (mm)，无法保存快照');
+  }
+  $('error').hidden = true;
+
+  const name =
+    $('snapName').value.trim() || `快照 ${new Date().toLocaleString('zh-CN', { hour12: false })}`;
+  state.snapshots.push({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+    name,
+    createdAt: Date.now(),
+    inputs: JSON.parse(JSON.stringify(body)),
+  });
+  persistSnapshots();
+  $('snapName').value = '';
+  renderSnapshots();
+}
+
+function deleteSnapshot(id) {
+  state.snapshots = state.snapshots.filter((s) => s.id !== id);
+  state.compareSel = state.compareSel.filter((x) => x !== id);
+  persistSnapshots();
+  if (state.diffIds.includes(id)) {
+    clearDiff();
+    draw();
+  }
+  renderSnapshots();
+}
+
+function clearDiff() {
+  state.diff = null;
+  state.diffIds = [];
+  $('diffResults').hidden = true;
+  $('exitCompare').hidden = true;
+}
+
+/* ---------------- 快照比较 ---------------- */
+
+async function compareSelected() {
+  const picked = state.compareSel
+    .map((id) => state.snapshots.find((s) => s.id === id))
+    .filter(Boolean);
+  if (picked.length !== 2) return;
+  // 时间较早的作为基准 a，较新的作为对比 b
+  const [a, b] = picked[0].createdAt <= picked[1].createdAt ? picked : [picked[1], picked[0]];
+
+  $('error').hidden = true;
+  let data;
+  try {
+    const res = await fetch('/api/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ a: a.inputs, b: b.inputs }),
+    });
+    data = await res.json();
+    if (!res.ok) return showError(data.error || '比较失败');
+  } catch (e) {
+    return showError('无法连接服务器：' + e.message);
+  }
+
+  state.diff = data;
+  state.diff.aName = a.name;
+  state.diff.bName = b.name;
+  state.diffIds = [a.id, b.id];
+  renderDiff();
+  $('exitCompare').hidden = false;
+  draw();
+}
+
+const DIFF_CATS = [
+  ['zones', '印刷保护区'],
+  ['forbidden', '禁用区间（合并后）'],
+  ['feasible', '可行角度段'],
+];
+
+function diffSegText(s, C) {
+  if (s.widthMm !== undefined && s.widthMm >= C - 1e-9) return '整圈';
+  const deg = (mm) => fmtDeg((mm / C) * 360);
+  const range = `${deg(s.startMm)}° → ${deg(s.endMm)}°`;
+  const mm = `${fmtMm(s.startMm)} → ${fmtMm(s.endMm)} mm`;
+  return `${range} ｜ ${mm}${s.wraps ? '（跨零点）' : ''}`;
+}
+
+const fmtDelta = (d) => (d > 0 ? '+' : '') + fmtMm(d);
+
+function renderDiff() {
+  const d = state.diff;
+  const box = $('diffResults');
+  if (!d) {
+    box.hidden = true;
+    return;
+  }
+  const C = d.circumference;
+  const seamNote =
+    Math.abs(d.seamWidthA - d.seamWidthB) > 1e-9
+      ? `，接缝宽度 ${fmtMm(d.seamWidthA)} → ${fmtMm(d.seamWidthB)} mm`
+      : `，接缝宽度 ${fmtMm(d.seamWidthA)} mm`;
+  let html =
+    `<div class="diff-head">基准「${esc(d.aName)}」→ 对比「${esc(d.bName)}」` +
+    `（周长 ${fmtMm(C)} mm${seamNote}）</div><div class="diff-cats">`;
+  let allEmpty = true;
+  for (const [key, title] of DIFF_CATS) {
+    const c = d[key];
+    const empty = c.added.length === 0 && c.removed.length === 0 && c.moved.length === 0;
+    if (!empty) allEmpty = false;
+    html += `<div class="diff-cat"><h3>${title}</h3>`;
+    if (empty) {
+      html += '<div class="diff-none">无差异</div>';
+    } else {
+      for (const m of c.moved) {
+        const parts = [];
+        if (Math.abs(m.startDeltaMm) > 1e-9) parts.push(`起点 ${fmtDelta(m.startDeltaMm)} mm`);
+        if (Math.abs(m.endDeltaMm) > 1e-9) parts.push(`终点 ${fmtDelta(m.endDeltaMm)} mm`);
+        html +=
+          `<div class="diff-item moved">↔ ${diffSegText(m.from, C)}<br>` +
+          `⇒ ${diffSegText(m.to, C)}（${parts.join('，')}）</div>`;
+      }
+      for (const s of c.added) html += `<div class="diff-item added">＋ ${diffSegText(s, C)}</div>`;
+      for (const s of c.removed) html += `<div class="diff-item removed">－ ${diffSegText(s, C)}</div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  if (allEmpty) html += '<div class="diff-none">两个快照的计算结果完全一致</div>';
+  box.innerHTML = html;
+  box.hidden = false;
+}
+
+/* ---------------- 比较视图 Canvas ---------------- */
+
+/** 在指定环上画一条径向边界刻度线 */
+function boundaryTick(cx, cy, r, w, mm, C, color, dashed) {
+  const a = rad(mm, C);
+  ctx.save();
+  if (dashed) ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx + (r - w / 2 - 3) * Math.cos(a), cy + (r - w / 2 - 3) * Math.sin(a));
+  ctx.lineTo(cx + (r + w / 2 + 3) * Math.cos(a), cy + (r + w / 2 + 3) * Math.sin(a));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** 快照比较视图：三环分别高亮可行段 / 禁用段 / 保护区的新增、移除与边界移动 */
+function drawDiff() {
+  const d = state.diff;
+  const { cx, cy, R, size } = geom();
+  const C = d.circumference;
+  drawTicks(cx, cy, R, C);
+
+  const rings = [
+    { key: 'feasible', r: R, w: 18 },
+    { key: 'forbidden', r: R - 28, w: 18 },
+    { key: 'zones', r: R - 52, w: 12 },
+  ];
+  for (const { r, w } of rings) {
+    ctx.strokeStyle = '#f3f4f6';
+    ctx.lineWidth = w;
+    arc(cx, cy, r, 0, TAU);
+  }
+  for (const { key, r, w } of rings) {
+    const cat = d[key];
+    ctx.globalAlpha = 0.4;
+    drawRingSegments(cx, cy, r, cat.unchanged, C, '#9ca3af', w);
+    ctx.globalAlpha = 1;
+    drawRingSegments(cx, cy, r, cat.removed, C, '#d43a3a', w);
+    drawRingSegments(cx, cy, r, cat.added, C, '#1e9e50', w);
+    for (const m of cat.moved) {
+      // 蓝色细弧为移动后的段，虚线刻度为原边界、实线刻度为新边界
+      drawRingSegments(cx, cy, r, [m.to], C, '#2563eb', Math.max(4, w - 8));
+      boundaryTick(cx, cy, r, w, m.from.startMm, C, '#9ca3af', true);
+      boundaryTick(cx, cy, r, w, m.from.endMm, C, '#9ca3af', true);
+      boundaryTick(cx, cy, r, w, m.to.startMm, C, '#2563eb', false);
+      boundaryTick(cx, cy, r, w, m.to.endMm, C, '#2563eb', false);
+    }
+  }
+
+  // 中心文字
+  const short = (s) => (s.length > 12 ? s.slice(0, 12) + '…' : s);
+  ctx.fillStyle = '#1f2937';
+  ctx.font = 'bold 20px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('快照比较', cx, cy - 14);
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText(`「${short(d.aName)}」→「${short(d.bName)}」`, cx, cy + 12);
+
+  // 图例与环说明
+  const legend = [
+    ['#1e9e50', '新增'],
+    ['#d43a3a', '移除'],
+    ['#2563eb', '边界移动'],
+    ['#9ca3af', '不变'],
+  ];
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  let lx = 16;
+  for (const [color, label] of legend) {
+    ctx.fillStyle = color;
+    ctx.fillRect(lx, size - 22, 12, 12);
+    ctx.fillStyle = '#374151';
+    ctx.fillText(label, lx + 16, size - 15);
+    lx += 16 + ctx.measureText(label).width + 18;
+  }
+  ctx.fillStyle = '#6b7280';
+  ctx.fillText('外环＝可行段　中环＝禁用段　内环＝保护区', 16, size - 40);
+
+  $('currentPos').textContent = `正在比较「${d.aName}」→「${d.bName}」，点击“退出比较”返回实时计算`;
+}
+
 /* ---------------- 初始化 ---------------- */
 
 $('addZone').addEventListener('click', () => {
@@ -436,6 +775,16 @@ $('loadExample').addEventListener('click', () => {
   compute();
 });
 window.addEventListener('resize', draw);
+
+// 快照面板
+$('saveSnapshot').addEventListener('click', saveSnapshot);
+$('compareBtn').addEventListener('click', compareSelected);
+$('exitCompare').addEventListener('click', () => {
+  clearDiff();
+  draw();
+});
+state.snapshots = loadSnapshots();
+renderSnapshots();
 
 // 默认载入示例并计算
 $('loadExample').click();

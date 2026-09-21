@@ -140,3 +140,81 @@ button.small { padding: 3px 10px; font-size: 12px; }
 .seg-list li.feasible.active { background: #dcfce7; }
 .seg-list li.forbidden { border-left: 4px solid var(--red); color: var(--muted); }
 .seg-list .tag { font-size: 11px; color: var(--muted); }
+
+/* ---------------- 方案快照与比较 ---------------- */
+
+.snapshots { grid-column: 1 / -1; }
+
+.snap-save { display: flex; gap: 10px; margin-bottom: 12px; }
+.snap-save input {
+  flex: 1;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 14px;
+}
+.snap-save input:focus { outline: 2px solid #bfdbfe; border-color: var(--blue); }
+
+.snapshot-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.snapshot-item.selected { border-color: var(--blue); background: #eff6ff; }
+.snapshot-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.snapshot-item .info { min-width: 0; }
+.snapshot-item .name {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.snapshot-item .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.snapshot-item .del {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--red);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.snapshot-empty { font-size: 13px; color: var(--muted); padding: 4px 2px; }
+
+.compare-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.diff-results { border-top: 1px dashed var(--line); margin-top: 12px; padding-top: 12px; }
+.diff-head { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.diff-cats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.diff-cat h3 { margin: 0 0 8px; }
+.diff-item {
+  font-size: 13px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  margin-bottom: 5px;
+  border-left: 4px solid;
+  line-height: 1.5;
+}
+.diff-item.added { border-color: var(--green); background: #f0fdf4; }
+.diff-item.removed { border-color: var(--red); background: #fef2f2; }
+.diff-item.moved { border-color: var(--blue); background: #eff6ff; }
+.diff-none { font-size: 13px; color: var(--muted); }

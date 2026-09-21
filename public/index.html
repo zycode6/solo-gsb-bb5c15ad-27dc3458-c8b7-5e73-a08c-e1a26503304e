@@ -52,6 +52,21 @@
       <h3>禁用区间（合并后）</h3>
       <ul id="forbiddenList" class="seg-list"></ul>
     </section>
+
+    <section class="panel snapshots">
+      <h2>方案快照 <span class="hint">为当前方案命名保存；勾选两个快照按圆周区间比较差异</span></h2>
+      <div class="snap-save">
+        <input id="snapName" type="text" maxlength="60" placeholder="快照名称（留空则使用时间）" />
+        <button id="saveSnapshot" type="button">保存为快照</button>
+      </div>
+      <ul id="snapshotList" class="snapshot-list"></ul>
+      <div class="compare-bar">
+        <button id="compareBtn" type="button" disabled>比较选中的两个快照</button>
+        <button id="exitCompare" type="button" class="ghost" hidden>退出比较</button>
+        <span id="compareHint" class="hint"></span>
+      </div>
+      <div id="diffResults" class="diff-results" hidden></div>
+    </section>
   </main>
 
   <script src="app.js"></script>
